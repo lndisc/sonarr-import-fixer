@@ -29,7 +29,7 @@ Add to your `docker-compose.yml`:
 
 ```yaml
 sonarr-fixer:
-  image: imorcillo/sonarr-import-fixer:latest
+  image: imorcillo/sonarr-fixer:latest
   container_name: sonarr-fixer
   environment:
     - PUID=1000
