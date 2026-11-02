@@ -27,8 +27,11 @@ while true; do
 
     if [ "$DRY_RUN" = "true" ]; then
         su-exec appuser python3 /app/sonarr-fix-imports.py --dry-run
+        su-exec appuser python3 /app/jellyfin-fix-matches.py --dry-run
     else
         su-exec appuser python3 /app/sonarr-fix-imports.py
+        # After imports: fix series Jellyfin matched to the wrong show
+        su-exec appuser python3 /app/jellyfin-fix-matches.py
     fi
 
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Sleeping ${INTERVAL}s..."

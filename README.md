@@ -19,6 +19,24 @@ This container runs a Python script on a configurable interval that:
 5. Triggers a Sonarr rescan
 6. Removes the blocked entry from the queue
 
+## Optional: fix series Jellyfin matched to the wrong show
+
+Sonarr names folders with the English TVDB title, and Jellyfin's scanner sometimes
+matches that folder to an unrelated series with a similar name (e.g. `Marry My Husband`
+→ *30 Days Till I Marry My Husband's Nemesis*). Jellyseerr then can't find the requested
+id in Jellyfin and the request stays in *processing* forever.
+
+If `JELLYFIN_API_KEY` is set, each run also:
+
+1. Compares the TVDB/TMDB ids Sonarr has for each series with the ids Jellyfin assigned
+   to the same folder
+2. On mismatch, applies Sonarr's ids in Jellyfin (`RemoteSearch/Apply`) and waits for them
+3. If anything was fixed and `JELLYSEERR_API_KEY` is set, runs Jellyseerr's
+   `jellyfin-full-scan` and then `availability-sync`
+
+At most `JELLYFIN_MAX_FIXES` series are changed per run, and a series that fails
+`JELLYFIN_MAX_ATTEMPTS` times is skipped (logged) until the container restarts.
+
 ## Requirements
 
 - The container must share the **same filesystem** as Sonarr and your download client, since hardlinks only work within the same filesystem. This typically means mounting the same root `/data` volume.
@@ -56,6 +74,13 @@ sonarr-fixer:
 | `DRY_RUN` | `false` | If `true`, logs actions without making changes |
 | `PUID` | `1000` | User ID for file ownership |
 | `PGID` | `1000` | Group ID for file ownership |
+| `JELLYFIN_URL` | `http://jellyfin:8096` | Jellyfin base URL |
+| `JELLYFIN_API_KEY` | *(empty: disabled)* | Jellyfin API key; enables the wrong-match check |
+| `JELLYSEERR_URL` | `http://jellyseerr:5055` | Jellyseerr base URL |
+| `JELLYSEERR_API_KEY` | *(empty)* | Jellyseerr API key; triggers the rescan after a fix |
+| `JELLYFIN_MAX_FIXES` | `5` | Max series changed per run |
+| `JELLYFIN_MAX_ATTEMPTS` | `3` | Failed attempts before giving up on a series |
+| `LOG_FILE` | *(empty)* | Optional log file path inside the container |
 
 ## Getting your Sonarr API key
 
@@ -63,10 +88,13 @@ Sonarr → Settings → General → API Key
 
 ## Logs
 
-The script logs to stdout (visible via `docker logs sonarr-fixer`) and optionally to a file if you mount one:
+Both scripts log to stdout (`docker logs sonarr-fixer`). To also log to a file, mount a
+**directory** (mounting a file path that doesn't exist yet makes Docker create a
+directory with that name) and set `LOG_FILE`:
 
 ```yaml
+environment:
+  - LOG_FILE=/logs/sonarr-fixer.log
 volumes:
-  - ./logs/sonarr-fix-imports.log:/var/log/sonarr-fix-imports.log
-  - /path/to/your/data:/data
+  - ./logs:/logs
 ```

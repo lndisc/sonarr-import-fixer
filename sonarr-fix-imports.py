@@ -21,19 +21,22 @@ from pathlib import Path
 # Configuration (from environment variables)
 SONARR_URL = os.environ.get("SONARR_URL", "http://localhost:8989")
 SONARR_API_KEY = os.environ.get("SONARR_API_KEY", "")
-LOG_FILE = os.environ.get("LOG_FILE", "/var/log/sonarr-fix-imports.log")
+# Optional: stdout (docker logs) is always written
+LOG_FILE = os.environ.get("LOG_FILE", "")
 DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
 
 def log(message):
     """Log message to file and stdout"""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_message = f"[{timestamp}] {message}"
-    print(log_message)
+    print(log_message, flush=True)
+    if not LOG_FILE:
+        return
     try:
         with open(LOG_FILE, "a") as f:
             f.write(log_message + "\n")
-    except:
-        pass
+    except OSError as e:
+        print(f"[{timestamp}] Could not write {LOG_FILE}: {e}", flush=True)
 
 def api_request(endpoint, method="GET", data=None):
     """Make API request to Sonarr"""
@@ -122,7 +125,8 @@ def generate_sonarr_filename(series, episode, quality="WEBDL-2160p"):
     episode_title = re.sub(r'[<>:"/\\|?*]', '', episode_title)
 
     # Format: "Series (Year) - S01E01 - Episode Title QUALITY.ext"
-    if year:
+    # Titles like "Treasure Island (2026)" already carry the year
+    if year and not series_title.endswith(f"({year})"):
         filename = f"{series_title} ({year}) - S{season_num:02d}E{episode_num:02d} - {episode_title} {quality}"
     else:
         filename = f"{series_title} - S{season_num:02d}E{episode_num:02d} - {episode_title} {quality}"
